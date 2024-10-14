@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Isochronic Tone Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #8a00ff;
+    }
+
+    .controls {
+      margin: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border: 2px solid #313036;
+      padding: 20px;
+      border-radius: 5px;
+      background-color: #49394e;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: black;
+    }
+
+    input {
+      width: 100px;
+      padding: 5px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #800000;
+      color: white;
+      border: 1px solid #313036;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #600000;
+    }
+  </style>
+</head>
+<body>
+  <h1>Isochronic Tone Generator</h1>
+  <div class="controls">
+    <label for="carrier-frequency">Carrier Frequency (Hz):</label>
+    <input type="number" id="carrier-frequency" value="82" min="1" max="1000">
+    <br>
+    <label for="theta-frequency">Theta Frequency (Hz):</label>
+    <input type="number" id="theta-frequency" value="4" min="1" max="100">
+    <br>
+    <label for="duration">Duration (seconds):</label>
+    <input type="number" id="duration" value="30" min="1">
+    <br>
+    <button id="play-button">Play</button>
+    <button id="stop-button">Stop</button>
+  </div>
+  <audio id="audio-player"></audio>
+  <script>
+    const carrierFrequencyInput = document.getElementById('carrier-frequency');
+    const thetaFrequencyInput = document.getElementById('theta-frequency');
+    const durationInput = document.getElementById('duration');
+    const playButton = document.getElementById('play-button');
+    const stopButton = document.getElementById('stop-button');
+    const audioPlayer = document.getElementById('audio-player');
+
+    playButton.addEventListener('click', () => {
+      const carrierFrequency = parseInt(carrierFrequencyInput.value);
+      const thetaFrequency = parseInt(thetaFrequencyInput.value);
+      const duration = parseInt(durationInput.value);
+
+      // Generate the isochronic tone using Web Audio API
+      const audioContext = new AudioContext();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      const modulationOscillator = audioContext.createOscillator();
+
+      oscillator.frequency.value = carrierFrequency;
+      modulationOscillator.frequency.value = thetaFrequency;
+      gainNode.gain.value = 0.5; // Adjust volume as needed
+
+      modulationOscillator.connect(gainNode.gain);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.start();
+      modulationOscillator.start();
+
+      setTimeout(() => {
+        oscillator.stop();
+        modulationOscillator.stop();
+      }, duration * 1000);
+    });
+
+    stopButton.addEventListener('click', () => {
+      audioContext.close();
+    });
+  </script>
+</body>
+</html>
