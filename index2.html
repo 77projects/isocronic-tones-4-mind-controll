@@ -68,9 +68,6 @@
     <label for="duration">Duration (seconds):</label>
     <input type="number" id="duration" value="30" min="1">
     <br>
-    <label for="voice-frequency">Voice Frequency (Hz):</label>
-    <input type="text" id="voice-frequency" readonly>
-    <br>
     <button id="play-button">Play</button>
     <button id="stop-button">Stop</button>
     <button id="download-button">Download</button>
@@ -88,7 +85,6 @@
     const audioPlayer = document.getElementById('audio-player');
     const recordButton = document.getElementById('record-button');
     const frequencyDisplay = document.getElementById('frequency-display');
-    const voiceFrequencyInput = document.getElementById('voice-frequency');
 
     let audioBuffer;
     let audioContext;
@@ -140,13 +136,15 @@
             const audioSource = audioContext.createMediaElementSource(new Audio(audioURL));
             const dominantFrequency = detectVoiceFrequency(audioSource);
 
-            // Update the frequency display and voice frequency input
-            frequencyDisplay.textContent = `Frequency: ${dominantFrequency.toFixed(2)} Hz`;
-            voiceFrequencyInput.value = dominantFrequency.toFixed(2);
+            // Update the carrier frequency input
+            carrierFrequencyInput.value = dominantFrequency;
 
-            // Play the recorded audio (optional)
+            // Play the recorded audio
             audioPlayer.src = audioURL;
             audioPlayer.play();
+
+            // Update the frequency display
+            frequencyDisplay.textContent = `Frequency: ${dominantFrequency.toFixed(2)} Hz`;
           };
 
           setTimeout(() => {
@@ -155,7 +153,6 @@
         })
         .catch(error => {
           console.error('Error accessing microphone:', error);
-          alert('Failed to access microphone. Please check your permissions.'); // User-friendly message
         });
     });
 
@@ -215,7 +212,6 @@
         modulationOscillator.stop();
         audioContext.close();
         audioContext = null;
-        URL.revokeObjectURL(audioPlayer.src); // Revoke object URL
       }
 
       // Disable the download button when audio generation is stopped
@@ -228,4 +224,15 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'isochronic_
+        a.download = 'isochronic_tone.wav';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        alert('No audio has been generated yet.');
+      }
+    });
+  </script>
+</body>
+</html>
