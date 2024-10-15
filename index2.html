@@ -59,7 +59,9 @@
     <button id="play-button">Play</button>
     <button id="stop-button">Stop</button>
     <button id="download-button">Download</button>
+    <button id="record-button">Record Voice</button>
   </div>
+  <p id="frequency-display">Frequency:</p>
   <audio id="audio-player"></audio>
   <script>
     const carrierFrequencyInput = document.getElementById('carrier-frequency');
@@ -69,6 +71,8 @@
     const stopButton = document.getElementById('stop-button');
     const downloadButton = document.getElementById('download-button');
     const audioPlayer = document.getElementById('audio-player');
+    const recordButton = document.getElementById('record-button');
+    const frequencyDisplay = document.getElementById('frequency-display');
 
     let audioBuffer;
     let audioContext;
@@ -76,6 +80,69 @@
     let modulationOscillator;
     let gainNode;
     let recordingContext;
+    let mediaRecorder;
+
+    function detectVoiceFrequency(audioData) {
+      const analyser = new AnalyserNode(audioContext);
+      analyser.fftSize = 2048;
+
+      audioData.connect(analyser);
+
+      const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(frequencyData);
+
+      let maxFrequency = 0;
+      let maxIndex = 0;
+      for (let i = 0; i < frequencyData.length; i++) {
+        if (frequencyData[i] > maxFrequency) {
+          maxFrequency = frequencyData[i];
+          maxIndex = i;
+        }
+      }
+
+      return (maxIndex / analyser.frequencyBinCount) * audioContext.sampleRate;
+    }
+
+    recordButton.addEventListener('click', () => {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          const microphone = audioContext.createMediaStreamSource(stream);
+          const chunks = [];
+
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.start();
+
+          mediaRecorder.ondataavailable = (event) => {
+            chunks.push(event.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const blob = new Blob(chunks, { 'type': 'audio/ogg; codecs=opus' });
+            const audioURL = URL.createObjectURL(blob);
+
+            // Analyze the recorded audio
+            const audioSource = audioContext.createMediaElementSource(new Audio(audioURL));
+            const dominantFrequency = detectVoiceFrequency(audioSource);
+
+            // Update the carrier frequency input
+            carrierFrequencyInput.value = dominantFrequency;
+
+            // Play the recorded audio
+            audioPlayer.src = audioURL;
+            audioPlayer.play();
+
+            // Update the frequency display
+            frequencyDisplay.textContent = `Frequency: ${dominantFrequency.toFixed(2)} Hz`;
+          };
+
+          setTimeout(() => {
+            mediaRecorder.stop();
+          }, 5000); // Adjust recording duration as needed
+        })
+        .catch(error => {
+          console.error('Error accessing microphone:', error);
+        });
+    });
 
     playButton.addEventListener('click', () => {
       const carrierFrequency = parseInt(carrierFrequencyInput.value);
