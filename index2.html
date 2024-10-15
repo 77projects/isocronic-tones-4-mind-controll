@@ -155,6 +155,7 @@
         })
         .catch(error => {
           console.error('Error accessing microphone:', error);
+          alert('Failed to access microphone. Please check your permissions.'); // User-friendly message
         });
     });
 
@@ -214,6 +215,7 @@
         modulationOscillator.stop();
         audioContext.close();
         audioContext = null;
+        URL.revokeObjectURL(audioPlayer.src); // Revoke object URL
       }
 
       // Disable the download button when audio generation is stopped
@@ -229,5 +231,4 @@
         a.download = 'isochronic_tone.wav';
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL
+        document.body
