@@ -88,8 +88,15 @@
     let oscillator;
     let modulationOscillator;
     let gainNode;
+    let isPlaying = false;
 
     function generateIsochronicTone() {
+      if (isPlaying) {
+        return; // Prevent multiple simultaneous tones
+      }
+
+      isPlaying = true;
+
       const carrierFrequency = parseInt(carrierFrequencyInput.value);
       const thetaFrequency = parseInt(thetaFrequencyInput.value);
       const duration = parseInt(durationInput.value);
@@ -129,15 +136,20 @@
       const mediaRecorder = new MediaRecorder(mediaStreamDestination.stream);
 
       // Set timeout to stop oscillators and record audio
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         oscillator.stop();
         modulationOscillator.stop();
         mediaRecorder.stop();
+        isPlaying = false;
       }, duration * 1000);
 
       mediaRecorder.ondataavailable = (event) => {
         const blob = new Blob([event.data], { 'type': 'audio/wav' });
         const url = URL.createObjectURL(blob);
+
+        // Log a message to verify that the Blob is created correctly
+        console.log('Blob created successfully:', blob);
+
         const a = document.createElement('a');
         a.href = url;
         a.download = 'isochronic_tone.wav';
@@ -146,6 +158,8 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       };
+
+      mediaRecorder.start();
     }
 
     playButton.addEventListener('click', () => {
@@ -158,19 +172,12 @@
         modulationOscillator.stop();
         audioContext.close();
         audioContext = null;
+        isPlaying = false;
       }
-
-      // Disable the download button when audio generation is stopped
-      downloadButton.disabled = true;
     });
 
     downloadButton.addEventListener('click', () => {
-      if (audioBuffer) {
-        const url = URL.createObjectURL(new Blob([new Uint8Array(audioBuffer.getChannelData(0))], { type: 'audio/wav' }));
-        window.open(url, '_blank');
-      } else {
-        alert('No audio has been generated yet.');
-      }
+      // No need for a download button since the audio is automatically downloaded
     });
   </script>
 </body>
