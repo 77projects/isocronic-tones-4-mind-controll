@@ -71,7 +71,6 @@
     <button id="play-button">Play</button>
     <button id="stop-button">Stop</button>
     <button id="download-button">Download</button>
-    <button id="record-button">Record Voice</button>
   </div>
   <p id="frequency-display">Frequency:</p>
   <audio id="audio-player"></audio>
@@ -83,80 +82,14 @@
     const stopButton = document.getElementById('stop-button');
     const downloadButton = document.getElementById('download-button');
     const audioPlayer = document.getElementById('audio-player');
-    const recordButton = document.getElementById('record-button');
     const frequencyDisplay = document.getElementById('frequency-display');
 
-    let audioBuffer;
     let audioContext;
     let oscillator;
     let modulationOscillator;
     let gainNode;
-    let recordingContext;
-    let mediaRecorder;
 
-    function detectVoiceFrequency(audioData) {
-      const analyser = new AnalyserNode(audioContext);
-      analyser.fftSize = 2048;
-
-      audioData.connect(analyser);
-
-      const frequencyData = new Uint8Array(analyser.frequencyBinCount);
-      analyser.getByteFrequencyData(frequencyData);
-
-      let maxFrequency = 0;
-      let maxIndex = 0;
-      for (let i = 0; i < frequencyData.length; i++) {
-        if (frequencyData[i] > maxFrequency) {
-          maxFrequency = frequencyData[i];
-          maxIndex = i;
-        }
-      }
-
-      return (maxIndex / analyser.frequencyBinCount) * audioContext.sampleRate;
-    }
-
-    recordButton.addEventListener('click', () => {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          const microphone = audioContext.createMediaStreamSource(stream);
-          const chunks = [];
-
-          mediaRecorder = new MediaRecorder(stream);
-          mediaRecorder.start();
-
-          mediaRecorder.ondataavailable = (event) => {
-            chunks.push(event.data);
-          };
-
-          mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { 'type': 'audio/ogg; codecs=opus' });
-            const audioURL = URL.createObjectURL(blob);
-
-            // Analyze the recorded audio
-            const audioSource = audioContext.createMediaElementSource(new Audio(audioURL));
-            const dominantFrequency = detectVoiceFrequency(audioSource);
-
-            // Update the carrier frequency input
-            carrierFrequencyInput.value = dominantFrequency;
-
-            // Play the recorded audio
-            audioPlayer.src = audioURL;
-            audioPlayer.play();
-
-            // Update the frequency display
-            frequencyDisplay.textContent = `Frequency: ${dominantFrequency.toFixed(2)} Hz`;
-          };
-
-          setTimeout(() => {
-            mediaRecorder.stop();
-          }, 5000); // Adjust recording duration as needed
-        })
-        .catch(error => {
-          console.error('Error accessing microphone:', error);
-        });
-    });
-
-    playButton.addEventListener('click', () => {
+    function generateIsochronicTone() {
       const carrierFrequency = parseInt(carrierFrequencyInput.value);
       const thetaFrequency = parseInt(thetaFrequencyInput.value);
       const duration = parseInt(durationInput.value);
@@ -186,24 +119,37 @@
       oscillator.start();
       modulationOscillator.start();
 
-      // Record audio
-      recordingContext = new OfflineAudioContext(1, duration * 44100, 44100);
-      recordingContext.destination.connect(gainNode);
-      recordingContext.start();
+      // Create a MediaStreamDestination from the audio context destination
+      const mediaStreamDestination = audioContext.createMediaStreamDestination();
+
+      // Connect gainNode to the MediaStreamDestination
+      gainNode.connect(mediaStreamDestination);
+
+      // Create a MediaRecorder
+      const mediaRecorder = new MediaRecorder(mediaStreamDestination.stream);
 
       // Set timeout to stop oscillators and record audio
       setTimeout(() => {
         oscillator.stop();
         modulationOscillator.stop();
-        recordingContext.complete().then((renderedBuffer) => {
-          audioBuffer = renderedBuffer;
-          audioPlayer.src = URL.createObjectURL(new Blob([new Uint8Array(renderedBuffer.getChannelData(0))], { type: 'audio/wav' }));
-          audioPlayer.play();
-
-          // Check if audioBuffer is not empty before enabling the download button
-          downloadButton.disabled = false;
-        });
+        mediaRecorder.stop();
       }, duration * 1000);
+
+      mediaRecorder.ondataavailable = (event) => {
+        const blob = new Blob([event.data], { 'type': 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'isochronic_tone.wav';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+    }
+
+    playButton.addEventListener('click', () => {
+      generateIsochronicTone();
     });
 
     stopButton.addEventListener('click', () => {
@@ -220,15 +166,8 @@
 
     downloadButton.addEventListener('click', () => {
       if (audioBuffer) {
-        const blob = new Blob([new Uint8Array(audioBuffer.getChannelData(0))], { type: 'audio/wav' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'isochronic_tone.wav';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const url = URL.createObjectURL(new Blob([new Uint8Array(audioBuffer.getChannelData(0))], { type: 'audio/wav' }));
+        window.open(url, '_blank');
       } else {
         alert('No audio has been generated yet.');
       }
